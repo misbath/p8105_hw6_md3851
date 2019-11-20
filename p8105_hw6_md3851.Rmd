@@ -9,6 +9,7 @@ output: github_document
 library(tidyverse)
 library(viridis)
 library(broom)
+library(modelr)
 
 knitr::opts_chunk$set(
 	echo = TRUE,
@@ -43,7 +44,13 @@ bwt_data = read_csv("./data/birthweight.csv")%>%
   drop_na() %>%
   view()
 
-model_1 = lm(bwt ~ mrace + momage + smoken, data = bwt_data)
+model_1 = lm(bwt ~ mrace + momage + smoken + mrace*momage + mrace*smoken + momage*smoken, data = bwt_data)
+
+bwt %>% 
+  add_residuals(model_1) %>%
+  add_predictions(model_1) %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point()
 
 model_2 = lm(bwt ~ blength + gaweeks, data = bwt_data)
 
