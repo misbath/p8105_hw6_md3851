@@ -44,7 +44,7 @@ bwt_data = read_csv("./data/birthweight.csv") %>%
   drop_na() %>%
   view()
 
-model_1 = lm(bwt ~ mrace + momage + smoken + mrace*momage + mrace*smoken + momage*smoken, data = bwt_data)
+model_1 = lm(bwt ~ gaweeks + wtgain + gaweeks*wtgain, data = bwt_data)
 
 bwt_data %>% 
   add_residuals(model_1) %>%
@@ -62,10 +62,9 @@ cv_df =
   crossv_mc(bwt_data, 100)
 
 cv_df = cv_df %>% 
-  mutate(model_1  = map(train, ~lm(bwt ~ mrace + momage + smoken + mrace*momage + 
-         mrace*smoken + momage*smoken, data = .x)),
+  mutate(model_1  = map(train, ~lm(bwt ~ gaweeks + wtgain + gaweeks*wtgain, data = .x)),
          model_2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
-         model_3  = map(train, ~lm(bwt ~ blength + gaweeks, data = bwt_data))) %>% 
+         model_3  = map(train, ~lm(bwt ~ bhead + blength + babysex +  bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = .x))) %>% 
   mutate(rmse_1 = map2_dbl(model_1, test, ~rmse(model = .x, data = .y)),
          rmse_2 = map2_dbl(model_2, test, ~rmse(model = .x, data = .y)),
          rmse_3 = map2_dbl(model_3, test, ~rmse(model = .x, data = .y)))
@@ -84,3 +83,68 @@ cv_plot
 ```
 
 #Problem 2
+
+```{r}
+weather_df = 
+  rnoaa::meteo_pull_monitors(
+    c("USW00094728"),
+    var = c("PRCP", "TMIN", "TMAX"), 
+    date_min = "2017-01-01",
+    date_max = "2017-12-31") %>%
+  mutate(
+    name = recode(id, USW00094728 = "CentralPark_NY"),
+    tmin = tmin / 10,
+    tmax = tmax / 10) %>%
+  select(name, id, everything())
+
+boot_straps_tidy = weather_df %>% 
+  bootstrap(n=5000) %>% 
+  mutate(models = map(strap, ~lm(tmax ~ tmin, data = .x)),
+         results = map(models, broom::tidy)) %>% 
+  select(-strap, -models) %>% 
+  unnest(results) %>% 
+  select(-std.error, -statistic, -p.value) %>%
+  pivot_wider(
+    names_from = term,
+    values_from = estimate
+  ) %>% 
+  rename(beta1 = tmin, beta0 = `(Intercept)`) %>% 
+  mutate(log = log(beta0*beta1))
+
+boot_straps_tidy
+
+boot_straps_glance = weather_df %>% 
+  bootstrap(n=5000) %>% 
+  mutate(models = map(strap, ~lm(tmax ~ tmin, data = .x) ),
+         results = map(models, broom::glance)) %>% 
+  select(-strap, -models) %>% 
+  unnest(results) %>% 
+  select(.id, r.squared)
+
+boot_straps_glance
+```
+
+```{r plots}
+log_plot = boot_straps_tidy %>% 
+  ggplot(aes(x = log)) +
+         geom_density()
+log_plot
+
+r_sq_plot = boot_straps_glance %>% 
+  ggplot(aes(x = r.squared)) +
+         geom_density()
+r_sq_plot 
+
+```
+
+```{r CIs}
+quantile(pull(boot_straps_tidy, log), probs =c(0.025, 0.975))
+
+quantile(pull(boot_straps_glance, r.squared), probs =c(0.025, 0.975))
+
+```
+
+  
+
+
+
