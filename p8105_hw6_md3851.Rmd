@@ -32,6 +32,8 @@ theme_set(theme_minimal() + theme(legend.position = "bottom"))
 
 #Problem 1 
 
+###Model Selection
+
 ```{r}
 bwt_data = read_csv("./data/birthweight.csv") %>% 
   janitor::clean_names() %>%
@@ -59,6 +61,8 @@ model_selection
 ```
 
 Model selection was automated with the stepAIC function from the MASS package. The direction was set to "both" so that both forward and backward selection were completed. The results return the best model, which is then labeled as model_1 below. 
+
+###Residual Plots 
 
 ```{r}
 
@@ -102,6 +106,8 @@ bwt_data %>%
 
 The three models and their associated residual plots are presented above. 
 
+###Cross validation
+
 ```{r}
 cv_df = 
   crossv_mc(bwt_data, 100)
@@ -128,9 +134,11 @@ cv_plot = cv_df %>%
 cv_plot 
 ```
 
-The cross-validation plot above shows the distribution of RMSE values for each candidate model. The RMSE is the square root of the variance of the residuals. It indicates the absolute fit of the model to the data–how close the observed data points are to the model’s predicted values. Given that model_1 has the lowest RMSE values, this suggests that it performs better than the two other models. Similarly, model_2 performs better than model_3. 
+The cross-validation plot above shows the distribution of RMSE values for each candidate model. The RMSE is the square root of the variance of the residuals. It indicates the absolute fit of the model to the data or how close the observed data points are to the model’s predicted values. Given that model_1 has the lowest RMSE values, this suggests that it performs better than the two other models. Similarly, model_2 performs better than model_3. 
 
 #Problem 2
+
+###Creating bootstraps samples 
 
 ```{r, message = FALSE}
 weather_df = 
@@ -172,21 +180,39 @@ boot_straps_glance = weather_df %>%
 boot_straps_glance
 ```
 
+###Visualizing distribution of estimates 
+
 ```{r plots}
 log_plot = boot_straps_tidy %>% 
   ggplot(aes(x = log)) +
-         geom_density()
+    geom_density() + 
+    labs(
+    x = "Log (Beta0*Beta1) Estimate",
+    y = "Density",
+    title = "Distribution of Log (Beta0*Beta1) Estimates")
+
 log_plot
 ```
 
+The estimates for the log value follow an approximately normal distribution, except for a small divot at the very top of the peak. There is also a larger tail towards the lower values than higher values which could indicate that large outliers are excluded from the bootstrap more than smaller outliers. 
 
 ```{r}
 r_sq_plot = boot_straps_glance %>% 
   ggplot(aes(x = r.squared)) +
-         geom_density()
+    geom_density() + 
+    labs(
+    x = "R squared Estimate",
+    y = "Density",
+    title = "Distribution of R Squared Estimates"
+    )
 r_sq_plot 
 
 ```
+
+The estimates for the r squared value also follow a distribution close to normal, with a larger tail towards the lower values than higher values. This could indicate that large outliers are excluded from the bootstrap more than smaller outliers. 
+
+
+###Determining 95% CI
 
 ```{r CIs}
 CI_rsquared = 
@@ -210,6 +236,9 @@ CI_log
 
 ```
 
+The 95% CI for the log estimates ranges from 1.96-2.05. 
+
+The 95% CI for the rsquared estimates ranges from 0.89-0.93. 
   
 
 
