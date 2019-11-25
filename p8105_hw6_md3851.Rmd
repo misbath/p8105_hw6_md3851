@@ -37,32 +37,78 @@ bwt_data = read_csv("./data/birthweight.csv") %>%
   janitor::clean_names() %>%
   mutate( 
     babysex = as.factor(babysex),
+    babysex = recode(babysex, "1" = "male", "2" = "female"),
     frace = as.factor(frace),
-    malform = as.factor(malform), 
+    frace = recode(frace, "1" = "white", "2" = "black", "3" = "asian", "4" = "puerto rican", "8" = "other", "9" = "unkown"),
+    malform = as.factor(malform),
+    malform = recode(malform, "0" = "absent", "1" = "present"),
     mrace = as.factor(mrace),
+    mrace = recode(mrace, "1" = "white", "2" = "black", "3" = "asian", "4" = "puerto rican", "8" = "other")
     ) %>%
-  drop_na() %>%
-  view()
+  drop_na() 
 
-model_1 = lm(bwt ~ gaweeks + wtgain + gaweeks*wtgain, data = bwt_data)
+bwt_data
+```
+
+```{r}
+model_selection = lm(bwt ~., data = bwt_data) %>% 
+  MASS::stepAIC(direction = "both", trace = FALSE) %>% 
+  summary()
+
+model_selection
+```
+
+Model selection was automated with the stepAIC function from the MASS package. The direction was set to "both" so that both forward and backward selection were completed. The results return the best model, which is then labeled as model_1 below. 
+
+```{r}
+
+model_1 = lm(bwt ~ babysex + bhead + blength + delwt + fincome + 
+    gaweeks + mheight + mrace + parity + ppwt + smoken, data = bwt_data)
 
 bwt_data %>% 
   add_residuals(model_1) %>%
   add_predictions(model_1) %>% 
   ggplot(aes(x = pred, y = resid)) + 
-  geom_point()
+  geom_point() + 
+  labs(
+       title = "Model_1 Residual Plot", 
+       x = "Predictions",
+       y = "Standardized Residuals")
 
 model_2 = lm(bwt ~ blength + gaweeks, data = bwt_data)
 
+bwt_data %>% 
+  add_residuals(model_2) %>%
+  add_predictions(model_2) %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point() + 
+  labs(
+       title = "Model_2 Residual Plot", 
+       x = "Predictions",
+       y = "Standardized Residuals")
+
 model_3 = lm(bwt ~ bhead + blength + babysex +  bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = bwt_data)
 
-#Cross validation  
+bwt_data %>% 
+  add_residuals(model_3) %>%
+  add_predictions(model_3) %>% 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point() +
+  labs(
+       title = "Model_3 Residual Plot", 
+       x = "Predictions",
+       y = "Standardized Residuals")
+```
 
+The three models and their associated residual plots are presented above. 
+
+```{r}
 cv_df = 
   crossv_mc(bwt_data, 100)
 
 cv_df = cv_df %>% 
-  mutate(model_1  = map(train, ~lm(bwt ~ gaweeks + wtgain + gaweeks*wtgain, data = .x)),
+  mutate(model_1  = map(train, ~lm(bwt ~ babysex + bhead + blength + delwt + fincome + 
+    gaweeks + mheight + mrace + parity + ppwt + smoken, data = .x)),
          model_2  = map(train, ~lm(bwt ~ blength + gaweeks, data = .x)),
          model_3  = map(train, ~lm(bwt ~ bhead + blength + babysex +  bhead*blength + bhead*babysex + blength*babysex + bhead*blength*babysex, data = .x))) %>% 
   mutate(rmse_1 = map2_dbl(model_1, test, ~rmse(model = .x, data = .y)),
@@ -70,8 +116,8 @@ cv_df = cv_df %>%
          rmse_3 = map2_dbl(model_3, test, ~rmse(model = .x, data = .y)))
 
 cv_plot = cv_df %>% 
-  select(starts_with("rmse")) %>% 
-pivot_longer(
+  select(starts_with("rmse"))%>% 
+  pivot_longer(
     everything(),
     names_to = "model", 
     values_to = "rmse",
@@ -82,9 +128,11 @@ pivot_longer(
 cv_plot 
 ```
 
+The cross-validation plot above shows the distribution of RMSE values for each candidate model. The RMSE is the square root of the variance of the residuals. It indicates the absolute fit of the model to the data–how close the observed data points are to the model’s predicted values. Given that model_1 has the lowest RMSE values, this suggests that it performs better than the two other models. Similarly, model_2 performs better than model_3. 
+
 #Problem 2
 
-```{r}
+```{r, message = FALSE}
 weather_df = 
   rnoaa::meteo_pull_monitors(
     c("USW00094728"),
@@ -138,9 +186,27 @@ r_sq_plot
 ```
 
 ```{r CIs}
-quantile(pull(boot_straps_tidy, log), probs =c(0.025, 0.975))
+CI_rsquared = 
+  boot_straps_glance %>% 
+    summarize(
+    perc_2.5 = round(quantile(r.squared, 0.025),2),
+    perc_97.5 = round(quantile(r.squared, 0.975),2)) %>%
+  knitr::kable()
 
-quantile(pull(boot_straps_glance, r.squared), probs =c(0.025, 0.975))
+CI_rsquared
+
+CI_log = 
+  boot_straps_tidy %>% 
+    summarize(
+    perc_2.5 = round(quantile(log, 0.025),2),
+    perc_97.5 = round(quantile(log, 0.975),2)) %>%
+  knitr::kable()
+
+CI_log
+
+#quantile(pull(boot_straps_tidy, log), probs =c(0.025, 0.975))
+
+#quantile(pull(boot_straps_glance, r.squared), probs =c(0.025, 0.975))
 
 ```
 
