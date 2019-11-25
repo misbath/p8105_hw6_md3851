@@ -177,7 +177,10 @@ log_plot = boot_straps_tidy %>%
   ggplot(aes(x = log)) +
          geom_density()
 log_plot
+```
 
+
+```{r}
 r_sq_plot = boot_straps_glance %>% 
   ggplot(aes(x = r.squared)) +
          geom_density()
@@ -204,9 +207,6 @@ CI_log =
 
 CI_log
 
-#quantile(pull(boot_straps_tidy, log), probs =c(0.025, 0.975))
-
-#quantile(pull(boot_straps_glance, r.squared), probs =c(0.025, 0.975))
 
 ```
 
